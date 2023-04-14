@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <memory_resource>
 #include <mutex>
@@ -82,6 +83,7 @@ public:
 
     void allocateRegion(const std::string& id, size_t numPages, size_t pageSize)
     {
+        std::lock_guard g(mapMutex_);
         const auto it = regions_.find(id);
         if (it == regions_.end()) {
             regions_.emplace(id,
@@ -100,6 +102,7 @@ public:
 
     void destroyRegion(const std::string& id)
     {
+        std::lock_guard g(mapMutex_);
         regions_.erase(id);
     }
 
@@ -179,6 +182,7 @@ private:
 
     Region& getRegion(const std::string& id)
     {
+        std::lock_guard g(mapMutex_);
         const auto it = regions_.find(id);
         assert(it != regions_.end());
         return it->second;
@@ -186,12 +190,18 @@ private:
 
     const Region& getRegion(const std::string& id) const
     {
+        std::lock_guard g(mapMutex_);
         const auto it = regions_.find(id);
         assert(it != regions_.end());
         return it->second;
     }
 
-    std::unordered_map<std::string, Region> regions_;
+    mutable std::mutex mapMutex_;
+    // We use a std::map, so the pointers to the Regions are stable and we
+    // can keep a single region locked without also locking mapMutex_.
+    // If we used an unordered_map, we would have to prevent modification
+    // of that map as long as a region is locked.
+    std::map<std::string, Region> regions_;
 };
 
 class TrackedMemoryRegion {
