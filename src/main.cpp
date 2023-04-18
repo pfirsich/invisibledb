@@ -118,9 +118,9 @@ public:
     void unlockRegion(const std::string& id)
     {
         auto& region = getRegion(id);
-        region.mutex->unlock();
         assert(region.locked);
         region.locked = false;
+        region.mutex->unlock();
     }
 
     const std::vector<PageVersion>& getPageVersions(const std::string& id) const
