@@ -92,6 +92,7 @@ public:
                     std::vector<std::byte>(pageSize * numPages),
                     pageSize,
                     std::vector<PageVersion>(numPages, 0),
+                    std::vector<std::vector<uintptr_t>>(numPages),
                     std::make_unique<std::mutex>(),
                 });
         } else {
@@ -135,7 +136,7 @@ public:
         assert(region.locked);
         const auto offset = pageIdx * region.pageSize;
         std::memcpy(region.data.data() + offset, buffer, region.pageSize);
-        region.addressOffsets = addressOffsets;
+        region.addressOffsets[pageIdx] = addressOffsets;
         region.pageVersions[pageIdx]++;
         return region.pageVersions[pageIdx];
     }
@@ -147,7 +148,7 @@ public:
         assert(region.locked);
         const auto offset = pageIdx * region.pageSize;
         std::memcpy(buffer, region.data.data() + offset, region.pageSize);
-        addressOffsets = region.addressOffsets;
+        addressOffsets = region.addressOffsets[pageIdx];
     }
 
     void addObject(const std::string& regionId, const std::string& objectId, uintptr_t offset)
@@ -174,8 +175,8 @@ private:
         std::vector<std::byte> data;
         size_t pageSize;
         std::vector<PageVersion> pageVersions;
+        std::vector<std::vector<uintptr_t>> addressOffsets;
         std::unique_ptr<std::mutex> mutex;
-        std::vector<uintptr_t> addressOffsets = {};
         std::unordered_map<std::string, uintptr_t> objects = {};
         bool locked = false;
     };
