@@ -1,24 +1,20 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project(netmemsync)
+project(invisibledb)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
-add_compile_definitions(NOMINMAX _USE_MATH_DEFINES) # Windows is trash
-
 # Define functions after add_subdirectory, so they are not overwritten
 include(cmake/wall.cmake)
 
-if(NETMEMSYNC_ENABLE_ASAN)
+if(INVISIBLEDB_ENABLE_ASAN)
   include(cmake/asan.cmake)
 endif()
 
-set(SRC
-  main.cpp
-)
-list(TRANSFORM SRC PREPEND src/)
+add_library(invisibledb src/invisibledb.cpp)
+set_wall(invisibledb)
 
-add_executable(netmemsync ${SRC})
-target_include_directories(netmemsync PUBLIC include)
-set_wall(netmemsync)
+add_executable(test src/main.cpp)
+target_link_libraries(test invisibledb)
+set_wall(test)
