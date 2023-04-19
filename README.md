@@ -1,6 +1,8 @@
 # Why Is There No Invisible Database?
-## The Idea
+
 In this post I'll write about the exploration of an old idea of mine, which didn't lead very far, so it might not be the most informative piece. If you have time to spare, go ahead. This will also serve as a reminder to myself when I revisit the idea in a few years.
+
+## The Idea
 
 For a few years I have been thinking about a database that requires little to no explicit storage and loading. I imagined simply marking a `std::vector` for example as "in the database" and it would all just magically happen. I wouldn't have to create wrapper classes and or write tedious serialization/deserialization code. Most developery dislike writing plumbing code, right? I wanted a system that automatically retrieves the newest version whenever I access a data structure and sends a modified version back to the server, when I modify it. And ideally it would work with arbitrary data structures, without any extra work. Something like this:
 
