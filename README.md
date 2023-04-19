@@ -1,6 +1,6 @@
 # Why Is There No Invisible Database?
 ## The Idea
-In this post I'll write about the exploration of an old idea of mine, which led almost nowhere, so it might not be the most informative piece. If you have time to spare, go ahead. This will also serve as a reminder to myself when I revisit the idea in a few years.
+In this post I'll write about the exploration of an old idea of mine, which didn't lead very far, so it might not be the most informative piece. If you have time to spare, go ahead. This will also serve as a reminder to myself when I revisit the idea in a few years.
 
 For a few years I have been thinking about a database that requires little to no explicit storage and loading. I imagined simply marking a `std::vector` for example as "in the database" and it would all just magically happen. I wouldn't have to create wrapper classes and or write tedious serialization/deserialization code. Most developery dislike writing plumbing code, right? I wanted a system that automatically retrieves the newest version whenever I access a data structure and sends a modified version back to the server, when I modify it. And ideally it would work with arbitrary data structures, without any extra work. Something like this:
 
@@ -10,13 +10,15 @@ struct TestStruct {
     unsigned int num;
 };
 
-// You need some sort of key, so you can identify that vectors across different machines belong together.
+// You need some sort of key, so you can identify that vectors across
+// different machines belong together.
 InTheDatabase<std::vector<TestStruct>> vec("vec");
 
 vec->push_back(TestStruct { "Joel", 69 /*nice*/ });
 // "Joel" is now in "vec" and available on every connected client machine
 
-// This might print a bunch of `str`s, that we did not put into "vec", but another client might have put there
+// This might print a bunch of `str`s, that we did not put into "vec",
+// but another client might have put there
 for (const auto& elem : *vec) {
     fmt::print("{}: {}\n", elem.str, elem.num);
 }
@@ -46,9 +48,10 @@ struct TestStruct {
     unsigned int num;
 };
 
-// This will lock the region on the server preventing any other client from locking it for a while,
-// and read the current version from the server.
-// It might also actually lock a mutex, so you can use the SyncedMemoryRegion from multiple threads.
+// This will lock the region on the server preventing any other client
+// from locking it for a while, and read the current version from the server.
+// It might also actually lock a mutex, so you can use the SyncedMemoryRegion
+// from multiple threads.
 region.lock();
 const auto vec = region.getObject<std::pmr::vector<TestStruct>>("vec");
 // Here we will send all modified pages to the server and the region will be unlocked.
@@ -57,7 +60,7 @@ region.unlock();
 // ...
 
 region.lock()
-vec->push_back(TestStruct { "Joel", 69 /*nice*/ });
+vec->push_back(TestStruct { "Joel", 42 });
 
 for (const auto& elem : *vec) {
     fmt::print("{}: {}\n", elem.str, elem.num);
@@ -73,7 +76,7 @@ Note that it's very easy to be less than extremely careful here and use the wron
 
 ```cpp
 std::pmr::string str = "Joel";
-vec->push_back(TestStruct { std::move(str), 69 });
+vec->push_back(TestStruct { std::move(str), 42 });
 ```
 
 Here the `str` field in our `TestStruct` object is **not** allocated in the memory region managed by the database!
@@ -87,7 +90,7 @@ And thinking about this it also becomes clear that not just all the allocators h
 
 This is about where I started implementing this thing. If you were smarter than me, you might have figured this out before starting, but pretty much all the interesting data structures have pointers. And even though they will point into the synchronized memory region, if you do everything right, those addresses might (very likely) not be correct on other clients, because the base address of the memory region will be different on different clients. I could not figure out how to fix this properly, except by walking through the whole modified memory region and finding everything that is aligned like a pointer and contains a value that looks like a pointer (i.e. an address inside of this memory region). After finding those addresses, I make them relative, save their offsets and restore them with the proper base address on reception. Yes, this could give false positives, which should be unlikely, but would lead to the most confusing bugs.
 
-You can check out my proof-of-concept implementation here: https://github.com/pfirsich/invisibledb
+You can check out my proof-of-concept implementation here: [pfirsich/invisibledb](https://github.com/pfirsich/invisibledb)
 
 In my implementation I took some shortcuts for the first (and likely last) prototype. The `Server` object does not actually connect anywhere and `Server::sendPage` and `Server::receivePage` simply `memcpy` some memory to and from a buffer. Similarly `Server::lockRegion` and `Server::unlockRegion` simply set a boolean flag. The `TrackedMemoryRegion` class, which was supposed to do the cool stuff - tracking writes using `usefaultfd` - currently only uses `memcmp` to check whether a page was modified. I wanted to keep the complexity low whereever possible until I implemented the tricky bits. That turned out to be wise, because, as I have explained above, they were very tricky.
 
